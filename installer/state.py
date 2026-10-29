@@ -43,11 +43,11 @@ class Journal:
             self.data['steps'].pop(name, None)
         atomic_json(self.path, self.data)
 
-    def finish(self, step, paths):
+    def finish(self, step, paths, allow_empty=False):
         outputs = {}
         for value in paths:
             path = inside(self.root, value)
-            if not path.is_file() or not path.stat().st_size:
+            if not path.is_file() or (not allow_empty and not path.stat().st_size):
                 raise ValueError('Saída ausente/vazia: ' + str(path))
             outputs[path.relative_to(self.root.resolve()).as_posix()] = digest(path)
         if not outputs:

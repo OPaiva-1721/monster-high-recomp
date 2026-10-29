@@ -173,7 +173,7 @@ def configure_checkout(root, app, info, options, python):
                         'RUNTIME_DLL_DIR': str(Path(options['ffmpeg']) / 'bin')})
     ini['cmake'].update({'CMAKE_C_COMPILER': options['compiler'], 'CMAKE_CXX_COMPILER': options['compiler'],
                          'PS3RECOMP_FFMPEG_INCLUDE_DIR': str(Path(options['ffmpeg']) / 'include'),
-                         'PORT_LAUNCHER': 'OFF', 'CMAKE_C_FLAGS': '/I{ROOT}/ports/' + game['game'] + '/shim'})
+                         'PORT_LAUNCHER': 'OFF', 'CMAKE_C_FLAGS': ''})
     if game['game'] == 'naruto-storm':
         ini['cmake']['CMAKE_RUNTIME_OUTPUT_DIRECTORY'] = str(app / 'build/game')
     # Local generated configuration is never part of a release or the user dump.
@@ -216,7 +216,7 @@ def run_install(source, dest, emit=print, *, options=None, root=ROOT, cancel=Non
     if not root.is_relative_to(dest / '.installer/downloads'):
         reject_overlap(root, dest)
     for value in [str(dest), *[str(v) for v in options.values()]]:
-        if any(char in value for char in ('%', '!', '\r', '\n', '"')):
+        if any(char in value for char in ('%', '!', '\r', '\n', '"', '&', '|', '<', '>', '^')):
             raise ValueError('Caminho/opção contém caractere não suportado por cmd.exe.')
     problems = doctor(options)
     if problems:
@@ -282,7 +282,7 @@ def _install_locked(source, dest, emit, options, root, game, cancel):
         emit({'stage': name, 'status': 'running', 'message': 'Executando ' + name})
         paths = action()
         runner.check()
-        journal.finish(name, paths)
+        journal.finish(name, paths, allow_empty=name == 'sdk')
         emit({'stage': name, 'status': 'complete', 'message': 'Etapa concluída: ' + name})
 
     def sdk_action():
@@ -316,7 +316,7 @@ def _install_locked(source, dest, emit, options, root, game, cancel):
         environment['CMAKE_BUILD_PARALLEL_LEVEL'] = '2'
         # A maintainer's debug environment must not alter a reproducible install.
         for key in list(environment):
-            if key in ('RECOMP_DIR','SPU_DIR','JOBS_DIR','BUILD_DIR','EXE','EBOOT_ELF','EBOOT_BIN','PS3RECOMP_DIR','LIFT_ARGS','PYTHON','HDD0_DIR','VCVARS64','RUNTIME_DLL_DIR'):
+            if key in ('RECOMP_DIR','LIFT_DIR','SPU_DIR','JOBS_DIR','BUILD_DIR','EXE','EBOOT_ELF','EBOOT_BIN','PS3RECOMP_DIR','LIFT_ARGS','PYTHON','HDD0_DIR','VCVARS64','RUNTIME_DLL_DIR'):
                 environment.pop(key)
         runner.run([py, app / 'tools/port.py', game['game'], stage], cwd=app, env=environment)
 

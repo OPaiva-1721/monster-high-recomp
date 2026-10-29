@@ -13,6 +13,9 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Let CMake quote shim include paths correctly, including destinations with spaces.
+include_directories(BEFORE "${CMAKE_CURRENT_SOURCE_DIR}/shim")
+
 # Prefer Ninja if available
 if(NOT CMAKE_GENERATOR MATCHES "Ninja" AND NOT DEFINED ENV{CMAKE_GENERATOR})
     message(STATUS "Tip: use -G Ninja for faster builds")

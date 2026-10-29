@@ -28,7 +28,7 @@ class InstallTests(unittest.TestCase):
         (self.port/'port.ini').write_text('[port]\nTITLE=test\n[cmake]\n[env]\nPERF=0\n')
         (self.port/'controls.ini').write_text('original')
         self.options={key:'fixture' for key in ('compiler','vcvars','ffmpeg','firmware','rpcs3')};self.options['elf']=''
-        self.commands=[];self.fail_stage=None
+        self.commands=[];self.environments=[];self.fail_stage=None
         self.addCleanup(patch.stopall)
         patch.object(install,'doctor',return_value=[]).start();patch.object(install,'check_slot').start()
         patch.object(install,'python_command',return_value=['python']).start()
@@ -36,7 +36,7 @@ class InstallTests(unittest.TestCase):
         patch.object(install.subprocess,'run',return_value=subprocess.CompletedProcess([],0)).start()
         owner=self
         def fake_run(runner,command,cwd=None,env=None):
-            runner.check();command=list(map(str,command));owner.commands.append(command)
+            runner.check();command=list(map(str,command));owner.commands.append(command);owner.environments.append(env)
             if command[:2]==['git','clone']:
                 path=Path(command[-1]);path.mkdir(parents=True);(path/'CMakeLists.txt').write_text('sdk')
             if 'venv' in command:
@@ -91,3 +91,14 @@ class InstallTests(unittest.TestCase):
         elf=self.game/'USRDIR/EBOOT.elf'
         with self.assertRaises(ValueError):install.extract_jobs(elf,[{'offset':0,'size':4,'sha256':'bad','name':'job.bin'}],self.base/'jobs')
         self.assertFalse((self.base/'jobs').exists())
+
+    def test_cmd_metacharacters_refused_without_creating_destination(self):
+        for char in '&|<>^':
+            self.dest=self.base/('port'+char+'command')
+            with self.assertRaises(ValueError):self.run_install()
+            self.assertFalse(self.dest.exists())
+
+    def test_maintenance_environment_cannot_redirect_lift(self):
+        with patch.dict('os.environ',{'LIFT_DIR':'old-maintainer-path'}):self.run_install()
+        for command,env in zip(self.commands,self.environments):
+            if any('port.py' in item for item in command):self.assertTrue('LIFT_DIR' not in env,'LIFT_DIR must not be inherited')

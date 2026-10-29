@@ -25,3 +25,9 @@ class JournalTests(unittest.TestCase):
         journal=Journal(self.root/'state.json',self.root,{})
         for files in ([],[self.root/'missing'],[self.root.parent/'escape']):
             with self.assertRaises(ValueError):journal.finish('ppu',files)
+
+    def test_sdk_may_contain_versioned_empty_files(self):
+        self.file.write_bytes(b'')
+        journal=Journal(self.root/'state.json',self.root,{})
+        journal.finish('sdk',[self.file],allow_empty=True)
+        self.assertTrue(journal.complete('sdk'))
