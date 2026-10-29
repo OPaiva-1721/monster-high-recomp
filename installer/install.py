@@ -16,6 +16,7 @@ if __package__ in (None, ''):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from installer.state import Journal, atomic_json, load
 from installer.validate import digest, inside, read_sfo, reject_overlap, source_root, validate_source
+from installer.game_process import wait_owned
 
 ROOT = Path(__file__).resolve().parents[1]
 ORDER = ['sdk', 'ppu', 'spu', 'build', 'ready']
@@ -42,7 +43,7 @@ class Runner:
             stream.flush()
             process = subprocess.Popen(list(map(str, command)), cwd=cwd, env=env,
                                        stdout=stream, stderr=subprocess.STDOUT,
-                                       creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0)
+                                       creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW) if os.name == 'nt' else 0)
             while process.poll() is None:
                 if self.cancel.wait(.2):
                     # Only the tree that this runner just created is terminated.
@@ -207,6 +208,16 @@ def extract_jobs(elf, specs, output):
     return paths
 
 
+def generation_fingerprint(root, game):
+    ini = configparser.ConfigParser(interpolation=None)
+    ini.read(Path(root) / 'ports' / game['game'] / 'port.ini', encoding='utf-8')
+    value = {'format': 1, 'elf': game['elf_sha256'], 'jobs': game['jobs'],
+             'sdk': digest(Path(root) / game['sdk_lock']),
+             'tools': {name: digest(Path(root) / 'tools' / name) for name in ('port.py','lift_spurs_jobs.py')},
+             'args': {name: ini.get('port', name, fallback='') for name in ('LIFT_ARGS','SYMBOL_PREFIX','TITLE')}}
+    return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
+
+
 def run_install(source, dest, emit=print, *, options=None, root=ROOT, cancel=None):
     root, dest = Path(root).resolve(), Path(dest).resolve()
     game = profile(root)
@@ -261,6 +272,8 @@ def _install_locked(source, dest, emit, options, root, game, cancel):
     copy_sources(root, app)
     atomic_json(app / 'installer/build.json', {'commit': rev})
     journal = Journal(dest / '.installer' / (key + '.json'), app, identity)
+    generation_key = generation_fingerprint(root, game)
+    old_active = load(dest / '.installer/active.json', {})
     py = dest / '.installer/python' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
     if not py.exists():
         runner.run(python_command() + ['-m', 'venv', '--without-pip', py.parents[1]])
@@ -316,11 +329,40 @@ def _install_locked(source, dest, emit, options, root, game, cancel):
         environment['CMAKE_BUILD_PARALLEL_LEVEL'] = '2'
         # A maintainer's debug environment must not alter a reproducible install.
         for key in list(environment):
-            if key in ('RECOMP_DIR','LIFT_DIR','SPU_DIR','JOBS_DIR','BUILD_DIR','EXE','EBOOT_ELF','EBOOT_BIN','PS3RECOMP_DIR','LIFT_ARGS','PYTHON','HDD0_DIR','VCVARS64','RUNTIME_DLL_DIR'):
+            if key in ('TITLE','SYMBOL_PREFIX','RECOMP_DIR','LIFT_DIR','SPU_DIR','JOBS_DIR','BUILD_DIR','EXE','EBOOT_ELF','EBOOT_BIN','PS3RECOMP_DIR','LIFT_ARGS','PYTHON','HDD0_DIR','VCVARS64','RUNTIME_DLL_DIR'):
                 environment.pop(key)
         runner.run([py, app / 'tools/port.py', game['game'], stage], cwd=app, env=environment)
 
+    def reuse_generation(stage):
+        if old_active.get('generation_key') != generation_key:
+            return None
+        old_app = inside(dest, old_active['app'])
+        if old_app == app:
+            return None
+        manifest_path = old_app / '.generation.json'
+        if not manifest_path.is_file() or digest(manifest_path) != old_active.get('generation_manifest_sha256'):
+            return None
+        records = load(manifest_path).get(stage, {})
+        if not records:
+            return None
+        candidates = []
+        for relative, sha in records.items():
+            path = inside(old_app, old_app / relative)
+            if not path.is_relative_to(old_app / 'build/lift') or not path.is_file() or digest(path) != sha:
+                return None
+            candidates.append((path, inside(app, app / relative)))
+        paths = []
+        for source_file, target in candidates:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source_file, target)
+            paths.append(target)
+        emit({'stage': stage, 'status': 'reused', 'message': 'Geração anterior conferida e reutilizada'})
+        return paths
+
     def ppu_action():
+        reused = reuse_generation('ppu')
+        if reused:
+            return reused
         pipeline('lift')
         files = list((app / 'build/lift/recompiled').glob('*'))
         if not any(p.name == 'ppu_recomp.h' for p in files) or not any(p.suffix in ('.c', '.cpp') for p in files):
@@ -328,6 +370,9 @@ def _install_locked(source, dest, emit, options, root, game, cancel):
         return [p for p in files if p.is_file()]
 
     def spu_action():
+        reused = reuse_generation('spu')
+        if reused:
+            return reused
         extract_jobs(info['elf'], game['jobs'], app / 'build/lift/spujobs')
         pipeline('lift-spu')
         files = [p for p in (app / 'build/lift/spu').rglob('*') if p.is_file()]
@@ -353,10 +398,12 @@ def _install_locked(source, dest, emit, options, root, game, cancel):
             shutil.copyfile(root / 'ports' / game['game'] / game['controls'], controls)
         (dest / 'userdata/hdd0').mkdir(parents=True, exist_ok=True)
         # Relative guest IO can still create gamedata; its CWD is stable userdata.
+        atomic_json(app / '.generation.json', {stage: journal.data['steps'][stage]['outputs'] for stage in ('ppu','spu')})
         config = {'source': info, 'options': options, 'app': str(app), 'repo': game['repo'], 'commit': rev,
+                  'generation_key': generation_key, 'generation_manifest_sha256': digest(app / '.generation.json'),
                   'executable_sha256': digest(app / 'build/game' / game['executable'])}
         atomic_json(app / '.ready.json', config)
-        return [app / '.ready.json']
+        return [app / '.ready.json', app / '.generation.json']
 
     for name, action in [('sdk', sdk_action), ('ppu', ppu_action), ('spu', spu_action), ('build', build_action), ('ready', ready_action)]:
         step(name, action)
@@ -372,7 +419,7 @@ def _install_locked(source, dest, emit, options, root, game, cancel):
 
 def create_shortcuts(dest, app, py):
     # Fixed script strings; paths are rejected above if cmd expansion is unsafe.
-    play = '@echo off\r\n"' + str(py) + '" "' + str(app / 'installer/install.py') + '" launch --dest "' + str(dest) + '"\r\n'
+    play = '@echo off\r\nchcp 65001 >nul\r\n"' + str(py) + '" "' + str(app / 'installer/install.py') + '" launch --dest "' + str(dest) + '"\r\n'
     update = play.replace(' launch --dest ', ' update --dest ')
     (dest / 'Jogar.cmd').write_text(play, encoding='utf-8')
     (dest / 'Atualizar.cmd').write_text(update, encoding='utf-8')
@@ -395,7 +442,7 @@ def launch(dest):
     ini.read(app / 'ports' / game['game'] / 'port.ini', encoding='utf-8')
     env = os.environ.copy()
     for key in list(env):
-        if key.startswith(('PAD_SCRIPT', 'PAD_FILE', 'PAD_STICK', 'PAD_SWEEP', 'RSX_CAP', 'PS3_DEBUG')):
+        if key == 'PAD_NO_KEYBOARD' or key.startswith(('PAD_SCRIPT', 'PAD_FILE', 'PAD_STICK', 'PAD_SWEEP', 'RSX_CAP', 'PS3_DEBUG')):
             env.pop(key)
     env.update(dict(ini['env']))
     env.update({'PS3_VFS_ROOT': str(Path(config['source']['game_path']).parent),
@@ -405,7 +452,7 @@ def launch(dest):
         process = subprocess.Popen([str(executable), config['source']['elf']], cwd=dest / 'userdata',
                                    env=env, stdout=log, stderr=subprocess.STDOUT)
         atomic_json(dest / '.installer/game-session.json', {'pid': process.pid, 'executable': str(executable)})
-        return process.wait()
+        return wait_owned(process, log)
 
 
 def update_install(dest, emit=print, cancel=None):
@@ -423,7 +470,19 @@ def update_install(dest, emit=print, cancel=None):
     download_snapshot(old['repo'], commit, staging)
     # New release code executes only after a verified pinned snapshot download.
     atomic_json(staging / 'installer/build.json', {'commit': commit})
-    return run_install(old['source']['game_path'], dest, emit, options=old['options'], root=staging, cancel=cancel)
+    if profile(staging)['repo'] != old['repo']:
+        raise ValueError('Perfil da atualização não corresponde à instalação.')
+    py = dest / '.installer/python' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
+    command = [py, staging / 'installer/install.py', 'install', '--source', old['source']['game_path'], '--dest', dest]
+    for key, value in old['options'].items():
+        if key in ('elf','firmware','ffmpeg','compiler','vcvars','rpcs3') and value:
+            command.extend(['--' + key, str(value)])
+    emit({'stage': 'update', 'status': 'running', 'message': 'Preparando atualização; acompanhe .installer/install.log'})
+    Runner(dest / '.installer/install.log', cancel, emit).run(command, cwd=staging)
+    if load(dest / '.installer/active.json', {}).get('commit') != commit:
+        raise ValueError('A atualização terminou sem ativar a revisão esperada.')
+    emit({'stage': 'complete', 'status': 'complete', 'message': 'Atualização concluída.'})
+    return 0
 
 
 def main():

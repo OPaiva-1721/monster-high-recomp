@@ -4,6 +4,11 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+import sys
+import os
+import shutil
+import threading
+from types import SimpleNamespace
 from unittest.mock import patch
 from installer import install
 from installer.state import atomic_json, load
@@ -27,6 +32,8 @@ class InstallTests(unittest.TestCase):
             'sha256':hashlib.sha256(self.patch.read_bytes()).hexdigest(),'base':'b'*40,'expected_tree':'tree'})
         (self.port/'port.ini').write_text('[port]\nTITLE=test\n[cmake]\n[env]\nPERF=0\n')
         (self.port/'controls.ini').write_text('original')
+        (self.root/'tools').mkdir()
+        for name in ('port.py','lift_spurs_jobs.py'):(self.root/'tools'/name).write_text('synthetic generator')
         self.options={key:'fixture' for key in ('compiler','vcvars','ffmpeg','firmware','rpcs3')};self.options['elf']=''
         self.commands=[];self.environments=[];self.fail_stage=None
         self.addCleanup(patch.stopall)
@@ -99,6 +106,76 @@ class InstallTests(unittest.TestCase):
             self.assertFalse(self.dest.exists())
 
     def test_maintenance_environment_cannot_redirect_lift(self):
-        with patch.dict('os.environ',{'LIFT_DIR':'old-maintainer-path'}):self.run_install()
+        with patch.dict('os.environ',{'LIFT_DIR':'old-maintainer-path','SYMBOL_PREFIX':'old_prefix','TITLE':'old_title'}):self.run_install()
         for command,env in zip(self.commands,self.environments):
-            if any('port.py' in item for item in command):self.assertTrue('LIFT_DIR' not in env,'LIFT_DIR must not be inherited')
+            if any('port.py' in item for item in command):
+                for name in ('LIFT_DIR','SYMBOL_PREFIX','TITLE'):self.assertTrue(name not in env,name+' must not be inherited')
+
+    def test_source_update_reuses_verified_generation_when_inputs_unchanged(self):
+        self.run_install()
+        atomic_json(self.root/'installer/build.json',{'commit':'d'*40})
+        self.commands.clear();self.run_install()
+        self.assertFalse(any(c[-1] in ('lift','lift-spu') for c in self.commands))
+        self.assertTrue(any(c[-1]=='build' for c in self.commands))
+
+    def test_insufficient_space_leaves_destination_absent(self):
+        self.profile['minimum_free_bytes']=1024
+        atomic_json(self.root/'installer/game.json',self.profile)
+        with patch.object(install.shutil,'disk_usage',return_value=SimpleNamespace(free=0)):
+            with self.assertRaisesRegex(ValueError,'insuficiente'):self.run_install()
+        self.assertFalse(self.dest.exists())
+
+    def test_busy_game_does_not_create_installation(self):
+        with patch.object(install,'check_slot',side_effect=RuntimeError('game occupied')):
+            with self.assertRaises(RuntimeError):self.run_install()
+        self.assertFalse(self.dest.exists())
+
+    def test_existing_lock_is_preserved(self):
+        self.run_install()
+        lock=self.dest/'.installer/install.lock';lock.mkdir()
+        old=load(self.dest/'.installer/active.json')
+        with self.assertRaisesRegex(ValueError,'bloqueada'):self.run_install()
+        self.assertTrue(lock.is_dir());self.assertEqual(old,load(self.dest/'.installer/active.json'))
+
+    def test_network_failure_preserves_active_and_save(self):
+        self.run_install();old=load(self.dest/'.installer/active.json')
+        save=self.dest/'userdata/hdd0/save';save.write_bytes(b'keep')
+        with patch.object(install,'profile',return_value=self.profile),patch('installer.update.latest_commit',side_effect=OSError('offline')):
+            with self.assertRaises(OSError):install.update_install(self.dest)
+        self.assertEqual(old,load(self.dest/'.installer/active.json'));self.assertEqual(save.read_bytes(),b'keep')
+
+    def test_update_executes_pinned_new_engine_and_requires_activation(self):
+        self.run_install();old=load(self.dest/'.installer/active.json');commit='f'*40
+        observed=[]
+        def download(repo,rev,path):
+            self.assertEqual((repo,rev),(self.profile['repo'],commit));shutil.copytree(self.root,path)
+        def run(runner,command,cwd=None,env=None):
+            observed.append(list(map(str,command)))
+        with patch.object(install,'profile',side_effect=lambda root=None:self.profile if root is None else load(Path(root)/'installer/game.json')),patch('installer.update.latest_commit',return_value=commit),patch('installer.update.download_snapshot',side_effect=download),patch.object(install.Runner,'run',run):
+            with self.assertRaisesRegex(ValueError,'ativar'):install.update_install(self.dest,lambda _:None)
+        self.assertEqual(old,load(self.dest/'.installer/active.json'))
+        command=observed[0]
+        self.assertEqual(command[0],str(self.dest/'.installer/python/Scripts/python.exe') if os.name=='nt' else str(self.dest/'.installer/python/bin/python'))
+        self.assertTrue(Path(command[1]).is_relative_to(self.dest/'.installer/downloads'))
+        self.assertEqual(load(Path(command[1]).parent/'build.json')['commit'],commit)
+        self.assertIn('--firmware',command);self.assertIn('--source',command)
+
+
+class RunnerTests(unittest.TestCase):
+    @unittest.skipUnless(os.name=='nt','Windows shortcut')
+    def test_real_shortcut_with_spaces_and_accents(self):
+        with tempfile.TemporaryDirectory() as folder:
+            dest=Path(folder)/'Instalação com espaços';app=dest/'app/revisão'
+            script=app/'installer/install.py';script.parent.mkdir(parents=True)
+            script.write_text("from pathlib import Path\nimport sys\nPath('ran.txt').write_text(sys.argv[-1],encoding='utf-8')\n",encoding='utf-8')
+            install.create_shortcuts(dest,app,Path(sys.executable))
+            subprocess.run(['cmd','/d','/c',str(dest/'Jogar.cmd')],cwd=dest,check=True,capture_output=True)
+            self.assertEqual((dest/'ran.txt').read_text(encoding='utf-8'),str(dest))
+
+    def test_cancel_real_owned_process(self):
+        with tempfile.TemporaryDirectory() as folder:
+            cancel=threading.Event();timer=threading.Timer(1,cancel.set);timer.start()
+            try:
+                with self.assertRaises(install.Cancelled):
+                    install.Runner(Path(folder)/'log',cancel).run([sys.executable,'-c','import time;time.sleep(30)'])
+            finally:timer.cancel()
