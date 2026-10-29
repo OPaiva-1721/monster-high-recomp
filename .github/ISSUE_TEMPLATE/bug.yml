@@ -1,0 +1,39 @@
+name: Problema reproduzível / bug report
+description: Relate uma falha sem anexar dados dos jogos.
+body:
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Conteúdo
+      options:
+        - label: Não anexei jogo, firmware, chaves, save, lift ou captura; removi dados pessoais dos logs.
+          required: true
+  - type: dropdown
+    id: game
+    attributes:
+      label: Port
+      options: [Naruto BLES00371, Monster High BLES02199 01.00, Ferramentas / tools]
+    validations:
+      required: true
+  - type: input
+    id: revision
+    attributes:
+      label: Commit e edição do jogo
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Windows, CPU, RAM, GPU e driver
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Passos, esperado e observado
+      description: Inclua etapa, configuração relevante e frequência.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Trecho de log sanitizado
+      render: text

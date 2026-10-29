@@ -1,0 +1,9 @@
+{
+  "upstream": "https://github.com/sp00nznet/ps3recomp",
+  "base": "39a36296511c445707adabcd312f0b740cfbd694",
+  "patch": "patches/ports/monster-high/sdk.patch",
+  "sha256": "38c43e0821552a47f5dddbf083d01917ae7c01964ae6e7b1f34abf4e12116564",
+  "expected_tree": "75c3f2d90ee58647016db8f811ea9406df75158b",
+  "source_revision": "078de6aacf03a12646dc893ee81e8c3548e05da1",
+  "note": "Source revision is provenance, not a public upstream commit to fetch. Apply patch to upstream base."
+}

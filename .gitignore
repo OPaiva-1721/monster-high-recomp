@@ -1,0 +1,35 @@
+# Nada de jogo no git.
+rom/*
+!rom/LEIA-ME.md
+*.iso
+*.pkg
+*.rap
+*.dkey
+*.elf
+*.self
+*.sprx
+EBOOT.*
+keys.txt
+generated/
+saves/
+
+# Terceiros (tools/fetch_deps.sh) e build.
+external/
+build/
+*.gcap
+*.gcap.partial
+*.log
+__pycache__/
+ports/*/port.local.ini
+shader_cache/
+
+# Android app build
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+
+# Disgaea D2 app build
+build/jniLibs-d2/
+android/d2/build/
+shader_cache/

@@ -1,0 +1,17 @@
+name: Synthetic tool checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  tools:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tools -p test_audit_publication.py -v
+      - run: python -m unittest discover -s tools -p test_port.py -v
+      - run: python -m unittest discover -s tools/monster_high -p test_*.py -v

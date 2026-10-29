@@ -1,0 +1,15 @@
+name: Ajuda ou proposta / contribution
+description: Proponha uma melhoria delimitada ou ofereça ajuda.
+body:
+  - type: textarea
+    id: scope
+    attributes:
+      label: Problema e proposta
+      description: Qual port/componente e resultado verificável?
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Como verificar
+      description: Prefira testes sintéticos. Não anexe dados dos jogos.
