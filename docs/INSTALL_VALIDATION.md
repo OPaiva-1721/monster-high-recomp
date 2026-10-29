@@ -5,7 +5,7 @@ no final por solicitação do usuário. Não é validação de campanha completa
 
 ## Motor e ferramentas
 
-- 37 testes do instalador: identidade SFO/ELF, estado e hashes, retomada,
+- 38 testes do instalador: identidade SFO/ELF, estado e hashes, retomada,
   proteção de userdata, falta de espaço, cancelamento de processo próprio,
   lock, rede indisponível, snapshot malicioso/incompleto, ativação de revisão,
   estados da UI e fechamento de sessão própria.
@@ -54,3 +54,8 @@ O runtime pode deixar threads vivas depois de fechar a janela. O launcher espera
 30 segundos sem nenhuma janela visível do próprio filho já observado e encerra
 somente esse processo restante; janela minimizada não dispara essa limpeza.
 Não há timeout enquanto a janela do jogo permanece aberta.
+
+A decifragem real de EBOOT.BIN passou com RPCS3 isolado pelo próprio motor;
+ELF conferido pelo hash do perfil e origem intacta. O motor copia somente
+executável/dependências do RPCS3 para cache privado com portable vazio, sem
+copiar nem alterar as configurações da instalação original.

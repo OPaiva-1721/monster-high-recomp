@@ -14,7 +14,7 @@
 - Pendente: testes finais, build limpo, UI/pacote, runtime, ambiente externo,
   revisão final, PRs e aprovação do pacote concreto.
 
-- Final: 37 testes do motor e 34 das ferramentas passaram; integração real de
+- Final: 38 testes do motor e 34 das ferramentas passaram; integração real de
   instalação, atualização local e preservação de userdata documentada em INSTALL_VALIDATION.
 - Final: corrigidos caminhos de shell (destino/opções/origem/root), include shim
   com espaços, ambiente de geração herdado, arquivos SDK vazios válidos e cache
@@ -33,6 +33,11 @@
   como experimental, sem simular validação externa. Custo: diferenças de ambiente
   ainda podem revelar requisitos adicionais.
 
-- Final: proteção de origem/root contra metacaracteres reproduzida em dois testes falhando e corrigida; 37 testes passaram.
+- Final: proteção de origem/root contra metacaracteres reproduzida em dois testes falhando e corrigida; 38 testes passaram.
 - Final: mutex Win32 entre launchers fecha a corrida entre conferir processos e abrir o jogo; teste nativo verifica bloqueio e liberação.
 - Final: Ctrl+C no motor CLI encerra apenas a árvore iniciada pelo Runner; cancelamento real e regressão cobertos.
+
+A decifragem real de EBOOT.BIN passou com RPCS3 isolado pelo próprio motor;
+ELF conferido pelo hash do perfil e origem intacta. O motor copia somente
+executável/dependências do RPCS3 para cache privado com portable vazio, sem
+copiar nem alterar as configurações da instalação original.

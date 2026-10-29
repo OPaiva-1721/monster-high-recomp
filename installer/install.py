@@ -159,6 +159,25 @@ def revision(root):
     return value
 
 
+def isolated_decryptor(rpc, dest):
+    """Read only the selected executable/dependencies; never reuse its settings."""
+    rpc = Path(rpc).resolve()
+    runtime = inside(dest, Path(dest) / '.installer/tools' / ('rpcs3-' + digest(rpc)[:16]))
+    runtime.mkdir(parents=True, exist_ok=True)
+    dependencies = [rpc, *rpc.parent.glob('*.dll')]
+    for folder in ('qt', 'plugins', 'platforms', 'imageformats', 'styles', 'tls'):
+        source = rpc.parent / folder
+        if source.is_dir():
+            dependencies.extend(p for p in source.rglob('*') if p.is_file() and p.suffix.lower() in ('.dll', '.json'))
+    for source in dependencies:
+        target = inside(dest, runtime / source.relative_to(rpc.parent))
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if not target.exists() or digest(target) != digest(source):
+            shutil.copy2(source, target)
+    inside(dest, runtime / 'portable').mkdir(exist_ok=True)
+    return runtime / rpc.name
+
+
 def prepare_source(source, dest, game, options, runner):
     game_dir = source_root(source)
     sfo = read_sfo(game_dir / 'PARAM.SFO')
@@ -174,7 +193,8 @@ def prepare_source(source, dest, game, options, runner):
         target.parent.mkdir(parents=True, exist_ok=True)
         if not target.with_suffix('.elf').exists():
             shutil.copyfile(game_dir / 'USRDIR/EBOOT.BIN', target)
-            runner.run([rpc, '--decrypt', target], cwd=target.parent)
+            private_rpc = isolated_decryptor(rpc, dest)
+            runner.run([private_rpc, '--decrypt', target], cwd=target.parent)
         elf = target.with_suffix('.elf')
     return validate_source(source, game, elf)
 

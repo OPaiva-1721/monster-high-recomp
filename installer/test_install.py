@@ -99,6 +99,17 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError):install.extract_jobs(elf,[{'offset':0,'size':4,'sha256':'bad','name':'job.bin'}],self.base/'jobs')
         self.assertFalse((self.base/'jobs').exists())
 
+    def test_decryptor_copies_runtime_without_original_settings(self):
+        runtime=self.base/'user-rpcs3';runtime.mkdir()
+        rpc=runtime/'rpcs3.exe';rpc.write_bytes(b'synthetic exe')
+        (runtime/'Qt6Core.dll').write_bytes(b'synthetic DLL')
+        (runtime/'config').mkdir();(runtime/'config/user.yml').write_text('personal settings')
+        copied=install.isolated_decryptor(rpc,self.dest)
+        self.assertNotEqual(copied,rpc);self.assertEqual(copied.read_bytes(),rpc.read_bytes())
+        self.assertTrue((copied.parent/'portable').is_dir())
+        self.assertFalse((copied.parent/'config').exists())
+        self.assertEqual((runtime/'config/user.yml').read_text(),'personal settings')
+
     def test_cmd_metacharacters_refused_without_creating_destination(self):
         for char in '&|<>^':
             self.dest=self.base/('port'+char+'command')
