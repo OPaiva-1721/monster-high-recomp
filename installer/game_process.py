@@ -3,6 +3,32 @@ import ctypes
 import os
 import subprocess
 import time
+from contextlib import contextmanager
+
+
+@contextmanager
+def single_game(name='Local\\ps3-port-installer-game-session'):
+    """Close the check/spawn race across our launchers; no persistent lock file."""
+    if os.name != 'nt':
+        yield
+        return
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.CreateMutexW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p]
+    kernel.CreateMutexW.restype = ctypes.c_void_p
+    kernel.CloseHandle.argtypes = [ctypes.c_void_p]
+    kernel.ReleaseMutex.argtypes = [ctypes.c_void_p]
+    handle = kernel.CreateMutexW(None, True, name)
+    error = ctypes.get_last_error()
+    if not handle:
+        raise ctypes.WinError(error)
+    if error == 183:  # ERROR_ALREADY_EXISTS: another launcher owns the session.
+        kernel.CloseHandle(handle)
+        raise ValueError('Outro launcher já está abrindo ou executando um jogo.')
+    try:
+        yield
+    finally:
+        kernel.ReleaseMutex(handle)
+        kernel.CloseHandle(handle)
 
 
 class ClosedWindow:

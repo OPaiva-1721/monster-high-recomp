@@ -16,7 +16,7 @@ if __package__ in (None, ''):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from installer.state import Journal, atomic_json, load
 from installer.validate import digest, inside, read_sfo, reject_overlap, source_root, validate_source
-from installer.game_process import wait_owned
+from installer.game_process import single_game, wait_owned
 
 ROOT = Path(__file__).resolve().parents[1]
 ORDER = ['sdk', 'ppu', 'spu', 'build', 'ready']
@@ -44,18 +44,36 @@ class Runner:
             process = subprocess.Popen(list(map(str, command)), cwd=cwd, env=env,
                                        stdout=stream, stderr=subprocess.STDOUT,
                                        creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW) if os.name == 'nt' else 0)
-            while process.poll() is None:
-                if self.cancel.wait(.2):
-                    # Only the tree that this runner just created is terminated.
-                    if os.name == 'nt':
-                        subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'],
-                                       stdout=stream, stderr=subprocess.STDOUT)
-                    else:
-                        process.terminate()
-                    process.wait()
-                    self.check()
+            try:
+                while process.poll() is None:
+                    if self.cancel.wait(.2):
+                        self.stop_owned(process, stream)
+                        self.check()
+            except KeyboardInterrupt:
+                self.cancel.set()
+                self.stop_owned(process, stream)
+                self.check()
             if process.returncode:
                 raise RuntimeError(f'Comando falhou ({process.returncode}). Consulte {self.log}')
+
+    @staticmethod
+    def stop_owned(process, stream):
+        # Only the tree created by this Runner is eligible for cancellation.
+        if process.poll() is not None:
+            return
+        if os.name == 'nt':
+            try:
+                result = subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'],
+                                        stdout=stream, stderr=subprocess.STDOUT, timeout=10,
+                                        creationflags=subprocess.CREATE_NO_WINDOW)
+                if result.returncode and process.poll() is None:
+                    process.terminate()
+            except (OSError, subprocess.TimeoutExpired):
+                if process.poll() is None:
+                    process.terminate()
+        else:
+            process.terminate()
+        process.wait(timeout=10)
 
 
 def profile(root=ROOT):
@@ -426,6 +444,11 @@ def create_shortcuts(dest, app, py):
 
 
 def launch(dest):
+    with single_game():
+        return _launch(dest)
+
+
+def _launch(dest):
     dest = Path(dest).resolve()
     config = load(dest / '.installer/active.json')
     if not config:

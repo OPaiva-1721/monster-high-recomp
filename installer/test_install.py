@@ -9,7 +9,7 @@ import os
 import shutil
 import threading
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from installer import install
 from installer.state import atomic_json, load
 from installer.test_validate import sfo
@@ -172,6 +172,14 @@ class InstallTests(unittest.TestCase):
 
 
 class RunnerTests(unittest.TestCase):
+    def test_ctrl_c_cancels_only_runner_child(self):
+        with tempfile.TemporaryDirectory() as folder:
+            process=Mock(pid=123,returncode=1);process.poll.return_value=None
+            cancel=Mock();cancel.is_set.side_effect=[False,True];cancel.wait.side_effect=KeyboardInterrupt
+            with patch.object(install.subprocess,'Popen',return_value=process),patch.object(install.Runner,'stop_owned') as stop:
+                with self.assertRaises(install.Cancelled):install.Runner(Path(folder)/'log',cancel).run(['synthetic'])
+            cancel.set.assert_called_once();self.assertEqual(stop.call_args.args[0],process)
+
     @unittest.skipUnless(os.name=='nt','Windows shortcut')
     def test_real_shortcut_with_spaces_and_accents(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -1,10 +1,19 @@
 import unittest
 import io
+import os
 from unittest.mock import Mock, patch
-from installer.game_process import ClosedWindow, wait_owned
+from installer.game_process import ClosedWindow, single_game, wait_owned
 
 
 class WindowLifecycleTests(unittest.TestCase):
+    @unittest.skipUnless(os.name=='nt','Win32 session mutex')
+    def test_concurrent_launcher_rejected_and_lock_released(self):
+        name='Local\\ps3-port-installer-test-'+str(os.getpid())
+        with single_game(name):
+            with self.assertRaises(ValueError):
+                with single_game(name):self.fail('second launcher entered')
+        with single_game(name):pass
+
     def test_startup_without_window_never_expires(self):
         watch=ClosedWindow()
         self.assertFalse(watch.expired(False,0))

@@ -5,7 +5,7 @@ no final por solicitação do usuário. Não é validação de campanha completa
 
 ## Motor e ferramentas
 
-- 35 testes do instalador: identidade SFO/ELF, estado e hashes, retomada,
+- 37 testes do instalador: identidade SFO/ELF, estado e hashes, retomada,
   proteção de userdata, falta de espaço, cancelamento de processo próprio,
   lock, rede indisponível, snapshot malicioso/incompleto, ativação de revisão,
   estados da UI e fechamento de sessão própria.

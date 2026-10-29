@@ -14,7 +14,7 @@
 - Pendente: testes finais, build limpo, UI/pacote, runtime, ambiente externo,
   revisão final, PRs e aprovação do pacote concreto.
 
-- Final: 35 testes do motor e 34 das ferramentas passaram; integração real de
+- Final: 37 testes do motor e 34 das ferramentas passaram; integração real de
   instalação, atualização local e preservação de userdata documentada em INSTALL_VALIDATION.
 - Final: corrigidos caminhos de shell (destino/opções/origem/root), include shim
   com espaços, ambiente de geração herdado, arquivos SDK vazios válidos e cache
@@ -32,3 +32,7 @@
 - Ruling: segunda máquina Windows indisponível — registrar limite e tratar pacote
   como experimental, sem simular validação externa. Custo: diferenças de ambiente
   ainda podem revelar requisitos adicionais.
+
+- Final: proteção de origem/root contra metacaracteres reproduzida em dois testes falhando e corrigida; 37 testes passaram.
+- Final: mutex Win32 entre launchers fecha a corrida entre conferir processos e abrir o jogo; teste nativo verifica bloqueio e liberação.
+- Final: Ctrl+C no motor CLI encerra apenas a árvore iniciada pelo Runner; cancelamento real e regressão cobertos.
