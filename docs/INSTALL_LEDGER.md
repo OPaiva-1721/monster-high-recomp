@@ -13,3 +13,22 @@
   motor CLI, retomada, isolamento de userdata, UI e atualização por snapshot.
 - Pendente: testes finais, build limpo, UI/pacote, runtime, ambiente externo,
   revisão final, PRs e aprovação do pacote concreto.
+
+- Final: 35 testes do motor e 34 das ferramentas passaram; integração real de
+  instalação, atualização local e preservação de userdata documentada em INSTALL_VALIDATION.
+- Final: corrigidos caminhos de shell (destino/opções/origem/root), include shim
+  com espaços, ambiente de geração herdado, arquivos SDK vazios válidos e cache
+  de geração por manifestos/hashes. Regressões específicas cobertas.
+- Final: atualização executa o motor da nova revisão verificada, não a cópia velha;
+  só confirma sucesso depois da ativação da revisão esperada.
+- Final: revisão de ciclo de processo próprio pediu tratar EnumWindows desconhecido
+  e falha de taskkill; ambos corrigidos e cobertos por testes.
+- Ruling: limpeza somente após 30s sem janela de um filho já observado — o runtime
+  não finalizava threads ao fechar; não alterar SDK nem encerrar sessão minimizada.
+  Custo: fechamento de threads remanescentes é forçado e fica registrado no log.
+- Ruling: transporte do ensaio de atualização usa objetos Git locais verificados —
+  fontes ainda não publicadas; não declarar download de release aprovado. Custo:
+  endpoint publicado deve ser conferido depois da autorização de publicação.
+- Ruling: segunda máquina Windows indisponível — registrar limite e tratar pacote
+  como experimental, sem simular validação externa. Custo: diferenças de ambiente
+  ainda podem revelar requisitos adicionais.

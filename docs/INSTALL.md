@@ -1,6 +1,6 @@
 # Instalação experimental de PC
 
-O Setup ainda está em validação. Não indica campanha completa, áudio ou controle
+O Setup é experimental. Não indica campanha completa, áudio ou controle
 físico totalmente aprovados. Os dados do jogo e firmware não acompanham o download.
 
 ## Requisitos
@@ -60,3 +60,10 @@ python -m unittest discover -s installer -p test_*.py -v
 `installer/package.ps1` cria ambiente privado de empacotamento e gera somente
 Setup/fontes publicáveis, com SHA-256. Exige fontes commitadas. Não empacota o
 executável do jogo, lift, dump, jobs extraídos, saves ou firmware.
+
+
+## Fechamento da janela
+
+Feche normalmente pelo X ou Alt+F4. Se o runtime deixar um processo sem janela,
+o launcher aguarda 30 segundos e limpa apenas seu próprio filho. Minimizar não
+encerra o jogo. Saves e configurações permanecem em userdata.
