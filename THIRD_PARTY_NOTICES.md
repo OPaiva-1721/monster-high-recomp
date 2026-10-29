@@ -17,3 +17,8 @@ exige revisão dos componentes que de fato o acompanhem.
 
 Nomes dos jogos identificam compatibilidade pretendida. Jogos e seus dados não
 fazem parte do código autoral disponibilizado.
+
+## Empacotamento do Setup
+
+PyInstaller 6.22.3: GPL-2.0 com exceção para distribuição de programas empacotados; alguns componentes Apache-2.0. Python/Tcl/Tk preservam suas licenças.
+Referências: https://pyinstaller.org/en/stable/license.html e https://www.python.org/psf/license/. O empacotador não é incorporado ao jogo.

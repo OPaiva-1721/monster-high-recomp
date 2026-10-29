@@ -16,9 +16,6 @@ import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 TOOLS = os.path.join(ROOT, 'external', 'ps3recomp', 'tools')
-sys.path.insert(0, TOOLS)
-from wrap_spu_elf import wrap  # noqa: E402
-from lift_jobmods import manual_link_targets, switch_table_targets  # noqa: E402
 
 IMAGE_BASE = 300  # clear of the ELF images (0..), jobmods (200..) and the policy (100)
 
@@ -35,7 +32,12 @@ def main():
     ap.add_argument('--jobs', required=True)
     ap.add_argument('--out', required=True)
     ap.add_argument('--prefix', default='port')
+    ap.add_argument('--sdk', default=os.path.join(ROOT, 'external', 'ps3recomp'))
     args = ap.parse_args()
+    tools = os.path.join(os.path.abspath(args.sdk), 'tools')
+    sys.path.insert(0, tools)
+    from wrap_spu_elf import wrap
+    from lift_jobmods import manual_link_targets, switch_table_targets
 
     jobs = sorted(glob.glob(os.path.join(args.jobs, 'spujob_*.bin')))
     if not jobs:
@@ -53,14 +55,14 @@ def main():
         with open(tmp, 'wb') as f:
             f.write(wrap(raw, base=0, entry=0))
         extra = [0] + manual_link_targets(raw, base=0) + switch_table_targets(raw, base=0)
-        cmd = [sys.executable, os.path.join(TOOLS, 'spu_lifter.py'), '--auto-functions', tmp,
+        cmd = [sys.executable, os.path.join(tools, 'spu_lifter.py'), '--auto-functions', tmp,
                '--base', '0', '--symbol-prefix', f'{name}_', '-o', os.path.join(args.out, name),
                '--source-name', 'spu_recomp.c', '--header-name', 'spu_recomp.h',
                '--extra-funcs', ','.join(hex(a) for a in sorted(set(extra)))]
         r = subprocess.run(cmd, capture_output=True, text=True)
         if r.returncode != 0:
             print(f'  FAIL {name}\n{r.stderr}', file=sys.stderr)
-            continue
+            sys.exit('SPURS job generation failed; see the diagnostic above')
         unsup = next((ln.split()[0] for ln in r.stdout.splitlines() if 'unsupported instruction' in ln), '0')
         print(f'  {name}: fp=0x{fp:016X} size={len(raw)} unsupported={unsup}')
         lifted.append((name, fp))

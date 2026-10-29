@@ -201,7 +201,7 @@ def main(argv=None):
              '--constructor', '--title', value('TITLE', args.game))
         jobs = path('JOBS_DIR', str(lift / 'spujobs'))
         if list(jobs.glob('spujob_*.bin')):
-            run([python, ROOT / 'tools/lift_spurs_jobs.py', '--jobs', jobs, '--out', spu, '--prefix', prefix])
+            run([python, ROOT / 'tools/lift_spurs_jobs.py', '--jobs', jobs, '--out', spu, '--prefix', prefix, '--sdk', sdk])
         else:
             print(f'No dumped SPURS jobs in {jobs}; run separately with SPU_DUMP_MISS to collect them.')
     elif args.stage == 'build':

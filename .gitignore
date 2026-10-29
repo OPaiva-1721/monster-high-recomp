@@ -33,3 +33,7 @@ android/local.properties
 build/jniLibs-d2/
 android/d2/build/
 shader_cache/
+
+# Installer packaging and local identity
+*.spec
+installer/build.json

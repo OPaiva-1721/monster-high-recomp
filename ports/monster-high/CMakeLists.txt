@@ -311,3 +311,6 @@ endif()
 # Install
 # ---------------------------------------------------------------------------
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin)
+
+# Stable output name for source installations without the legacy launcher.
+set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME MonsterHigh)

@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "game": "monster-high",
+  "title": "Monster High: New Ghoul in School",
+  "title_id": "BLES02199",
+  "version": "01.00",
+  "elf_sha256": "3b08c11414e21ed534cae25be69d9e4babcb177ac0cad9f554ea24737cf0bc6f",
+  "sdk_lock": "ports/monster-high/sdk.lock.json",
+  "repo": "OPaiva-1721/monster-high-recomp",
+  "executable": "MonsterHigh.exe",
+  "controls": "monster-high-controls.ini",
+  "minimum_free_bytes": 12884901888,
+  "runtime_dlls": [
+    "avcodec-62.dll",
+    "avutil-60.dll",
+    "swresample-6.dll"
+  ],
+  "jobs": []
+}

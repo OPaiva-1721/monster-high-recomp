@@ -6,6 +6,7 @@ Preview de fontes e ferramentas, aberto a contribuições. Não é um jogo pront
 Experimental Windows/D3D12 recompilation port. Sources and tools only;
 bring your own compatible game data. Full gameplay and external setup remain unverified.
 
+- [Instalador em validação](docs/INSTALL.md)
 - [Setup e build](docs/PC_SETUP.md)
 - [Guia do port](ports/monster-high/README.md)
 - [Estado e pendências](docs/STATUS_PC.md)

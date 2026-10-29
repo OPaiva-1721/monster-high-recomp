@@ -197,6 +197,7 @@ class PipelineTests(unittest.TestCase):
         commands = [c.args[0] for c in self.run.call_args_list]
         self.assertEqual([Path(c[1]).name for c in commands],
                          ['extract_spu_images.py', 'build_spu_workloads.py', 'lift_spurs_jobs.py'])
+        self.assertEqual(commands[-1][-2:], ['--sdk', str(self.root / 'external/ps3recomp')])
 
 
 @unittest.skipUnless(os.name == 'nt', 'System.Drawing converter requires Windows')
