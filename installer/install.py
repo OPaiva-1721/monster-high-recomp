@@ -226,7 +226,7 @@ def run_install(source, dest, emit=print, *, options=None, root=ROOT, cancel=Non
     # Only verified updater snapshots may live inside an existing installation.
     if not root.is_relative_to(dest / '.installer/downloads'):
         reject_overlap(root, dest)
-    for value in [str(dest), *[str(v) for v in options.values()]]:
+    for value in [str(root), str(source_root(source)), str(dest), *[str(v) for v in options.values()]]:
         if any(char in value for char in ('%', '!', '\r', '\n', '"', '&', '|', '<', '>', '^')):
             raise ValueError('Caminho/opção contém caractere não suportado por cmd.exe.')
     problems = doctor(options)

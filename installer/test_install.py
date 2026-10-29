@@ -105,6 +105,16 @@ class InstallTests(unittest.TestCase):
             with self.assertRaises(ValueError):self.run_install()
             self.assertFalse(self.dest.exists())
 
+    def test_source_cmd_metacharacters_refused_before_commands(self):
+        unsafe=self.base/'dump&command';self.source.rename(unsafe);self.source=unsafe
+        with self.assertRaises(ValueError):self.run_install()
+        self.assertFalse(self.commands);self.assertFalse(self.dest.exists())
+
+    def test_engine_root_cmd_metacharacters_refused_before_commands(self):
+        unsafe=self.base/'repo&command';self.root.rename(unsafe);self.root=unsafe
+        with self.assertRaises(ValueError):self.run_install()
+        self.assertFalse(self.commands);self.assertFalse(self.dest.exists())
+
     def test_maintenance_environment_cannot_redirect_lift(self):
         with patch.dict('os.environ',{'LIFT_DIR':'old-maintainer-path','SYMBOL_PREFIX':'old_prefix','TITLE':'old_title'}):self.run_install()
         for command,env in zip(self.commands,self.environments):
